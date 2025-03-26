@@ -1,0 +1,90 @@
+[build-system]
+requires      = [ "setuptools>=42.0.0", "wheel>=0.37.0" ]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "llm_forge"
+version = "0.1.0"
+description = "A recursive framework for language model development, orchestration, and deployment"
+authors = [ { name = "Lloyd Handyside", email = "ace1928@gmail.com" } ]
+readme = "README.md"
+requires-python = ">=3.8,<3.13"
+license = { text = "MIT" }
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Libraries",
+]
+keywords = [
+    "llm",
+    "forge",
+    "language model",
+    "processing",
+    "orchestration",
+    "ai",
+    "generative",
+    "pipeline",
+]
+
+[project.urls]
+Homepage      = "https://github.com/Ace1928/llm_forge"
+Repository    = "https://github.com/Ace1928/llm_forge"
+Documentation = "https://github.com/Ace1928/llm_forge/docs"
+"Bug Tracker" = "https://github.com/Ace1928/llm_forge/issues"
+"Change Log"  = "https://github.com/Ace1928/llm_forge/blob/main/CHANGELOG.md"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0,<8.0.0",
+    "pytest-cov>=4.0.0,<5.0.0",
+    "mypy>=1.0.0,<2.0.0",
+    "black>=23.0.0,<24.0.0",
+    "isort>=5.12.0,<6.0.0",
+    "ruff>=0.0.275,<0.1.0",
+    "pre-commit>=3.0.0,<4.0.0",
+]
+docs = [
+    "sphinx>=6.0.0,<7.0.0",
+    "sphinx-rtd-theme>=1.2.0,<2.0.0",
+    "sphinx-autodoc-typehints>=1.22.0,<2.0.0",
+    "myst-parser>=2.0.0,<3.0.0",
+]
+testing = [
+    "pytest>=7.0.0,<8.0.0",
+    "pytest-cov>=4.0.0,<5.0.0",
+    "tox>=4.0.0,<5.0.0",
+]
+all = [ "llm_forge[dev,docs,testing]" ]
+
+[project.scripts]
+llm-forge = "llm_forge.cli.main:main"
+
+[tool.isort]
+profile     = "black"
+line_length = 88
+
+[tool.black]
+line-length    = 88
+target-version = [ "py38", "py39", "py310", "py311", "py312" ]
+
+[tool.mypy]
+python_version           = "3.8"
+warn_return_any          = true
+warn_unused_configs      = true
+disallow_untyped_defs    = true
+disallow_incomplete_defs = true
+
+[tool.ruff]
+line-length    = 88
+target-version = "py38"
+select         = [ "E", "F", "B", "I", "N", "W" ]
+ignore         = [  ]
