@@ -6,9 +6,13 @@ This module implements a multi-component system for generating structured
 AI responses with recursive refinement. It parses user prompts into structured
 requests, generates content for each section, and applies recursive correction
 to enhance output quality.
+
+This module provides the complete end-to-end pipeline for the LLM Forge system,
+including both the processing logic and a demonstration entry point.
 """
 
 import json
+from typing import Final
 
 # Ensure NLTK 'punkt' tokenizer is available
 import nltk
@@ -26,26 +30,36 @@ from llm_forge_proto.input_parser import parse_input
 from llm_forge_proto.logging_config import configure_logging
 from llm_forge_proto.type_definitions import ModelResponse, StructuredInput
 
-# Configure logging
-logger = configure_logging()
+# Configure logging with module context
+logger: Final = configure_logging()
 
 
 def process_user_prompt(user_prompt: str) -> ModelResponse:
-    """Process a user prompt into a structured response.
+    """
+    Process a user prompt into a structured response.
 
     This is the main orchestration function that coordinates the entire process
-    from parsing the prompt to generating and finalizing the response.
+    from parsing the prompt to generating and finalizing the response. The function
+    follows a three-step pipeline:
+    1. Parse the prompt into structured data
+    2. Generate initial content for each model and section
+    3. Validate and complete any missing sections
 
     Args:
         user_prompt: The raw user input text to process
 
     Returns:
-        A structured response with content for each model and section
+        ModelResponse: A structured response with content for each model and section
 
     Raises:
-        ValueError: If the prompt cannot be properly parsed
+        ValueError: If the prompt cannot be properly parsed or is empty
+
+    Examples:
+        >>> response = process_user_prompt("Compare GPT and Claude models")
+        >>> print(response["topic"])
+        "GPT and Claude models"
     """
-    # Step 1: Parse the prompt
+    # Step 1: Parse the prompt into structured components
     logger.info("Parsing user prompt...")
     structured_input: StructuredInput = parse_input(user_prompt)
     logger.debug("Structured Input:\n" + json.dumps(structured_input, indent=2))
@@ -66,22 +80,27 @@ def process_user_prompt(user_prompt: str) -> ModelResponse:
 
 
 def main() -> None:
-    """Execute the main program workflow.
+    """
+    Execute the main program workflow for the LLM Forge system.
 
-    Orchestrates the entire process from parsing an example prompt to
+    This function orchestrates the entire process from parsing an example prompt to
     generating structured content, refining it recursively, and outputting
     the final comprehensive response with multiple models and sections.
 
-    This function demonstrates the full pipeline in action with an example
+    The function demonstrates the full pipeline in action using an example
     prompt comparing different LLM architectures.
 
     Returns:
         None: Results are printed to standard output
+
+    Examples:
+        >>> main()
+        # Outputs a structured JSON response to stdout comparing LLM architectures
     """
     logger.info("Program started.")
 
-    # Example user prompt
-    user_prompt: str = (
+    # Example prompt comparing LLM architectures
+    user_prompt: Final[str] = (
         "Compare three different LLM architectures: GPT, Claude, and Mistral. Provide details on:\n"
         "1. Model architecture\n"
         "2. Training data and methodology\n"
@@ -89,10 +108,10 @@ def main() -> None:
         "4. Real-world use cases"
     )
 
-    # Process the prompt
+    # Process the prompt through the full pipeline
     final_response: ModelResponse = process_user_prompt(user_prompt)
 
-    # Output the result
+    # Output the fully processed result
     logger.info("Program finished. Final response:")
     print(json.dumps(final_response, indent=2))
 
