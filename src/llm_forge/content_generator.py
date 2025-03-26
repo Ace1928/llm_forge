@@ -6,13 +6,148 @@ user prompts. It orchestrates calls to language models and ensures the
 generation of complete, well-formatted responses.
 """
 
+import random
 from typing import Dict, List
 
 from llm_forge.logging_config import configure_logging
-from llm_forge.type_definitions import ModelResponse, StructuredInput
+from llm_forge.templates.content_templates import get_section_template
+from llm_forge.type_definitions import ContentGenerator, ModelResponse, StructuredInput
 
 # Configure logging
 logger = configure_logging()
+
+
+class SimulatedContentGenerator:
+    """
+    Simulated content generator for development and testing.
+
+    Generates realistic-looking content for different models and sections
+    without requiring actual LLM API calls.
+    """
+
+    def __init__(self, randomize: bool = True) -> None:
+        """
+        Initialize the simulated content generator.
+
+        Args:
+            randomize: Whether to add random variations to generated content
+        """
+        self.randomize = randomize
+
+    def generate(self, model: str, section: str, topic: str) -> str:
+        """
+        Generate simulated content for a specific model and section.
+
+        Args:
+            model: The model to generate content for
+            section: The section to generate
+            topic: The topic to generate content about
+
+        Returns:
+            Generated content as a string
+        """
+        # Get template for this section
+        template = get_section_template(section)
+
+        # Fill in template with model-specific information
+        content = template.format(
+            model=model.upper(),
+            topic=topic,
+            # Add some model-specific characteristics
+            **self._get_model_characteristics(model),
+        )
+
+        # Add some randomness if enabled
+        if self.randomize:
+            content = self._add_variations(content)
+
+        return content
+
+    def _get_model_characteristics(self, model: str) -> Dict[str, str]:
+        """
+        Get characteristic details for a specific model.
+
+        Args:
+            model: The model name
+
+        Returns:
+            Dictionary of model characteristics
+        """
+        characteristics = {
+            "gpt": {
+                "architecture": "transformer-based autoregressive language model",
+                "training": "trained on diverse internet text with reinforcement learning from human feedback",
+                "strength": "broad general knowledge and instruction following",
+                "weakness": "potential for hallucinations and verbosity",
+                "company": "OpenAI",
+                "year": "2020-2023",
+            },
+            "claude": {
+                "architecture": "constitutional AI framework with advanced reasoning",
+                "training": "trained with constitutional AI and RLHF techniques",
+                "strength": "thoughtful reasoning and balanced responses",
+                "weakness": "sometimes overexplains simple concepts",
+                "company": "Anthropic",
+                "year": "2022-2023",
+            },
+            "llama": {
+                "architecture": "open-source transformer architecture",
+                "training": "trained on publicly available datasets with custom tokenization",
+                "strength": "open ecosystem and customizability",
+                "weakness": "less refined than commercial counterparts in some tasks",
+                "company": "Meta",
+                "year": "2023",
+            },
+            "mistral": {
+                "architecture": "mixture-of-experts transformer architecture",
+                "training": "trained with sparse mixture of experts approach",
+                "strength": "efficient performance and specialized knowledge routing",
+                "weakness": "newer model with less ecosystem integration",
+                "company": "Mistral AI",
+                "year": "2023",
+            },
+        }
+
+        # Return default characteristics if model not found
+        return characteristics.get(
+            model.lower(),
+            {
+                "architecture": "neural network-based language model",
+                "training": "trained on text data",
+                "strength": "natural language processing",
+                "weakness": "limited by training data",
+                "company": "Various",
+                "year": "recent",
+            },
+        )
+
+    def _add_variations(self, content: str) -> str:
+        """
+        Add random variations to make simulated content more realistic.
+
+        Args:
+            content: Base content string
+
+        Returns:
+            Content with added variations
+        """
+        # Add some filler phrases randomly
+        fillers = [
+            "It's worth noting that ",
+            "Interestingly, ",
+            "According to recent research, ",
+            "Many experts believe that ",
+            "Based on available information, ",
+        ]
+
+        sentences = content.split(". ")
+
+        # Add a filler to about 30% of sentences
+        for i in range(len(sentences)):
+            if random.random() < 0.3:
+                sentences[i] = random.choice(fillers) + sentences[i].lower()
+
+        return ". ".join(sentences)
 
 
 def generate_response(structured_input: StructuredInput) -> ModelResponse:
@@ -33,6 +168,9 @@ def generate_response(structured_input: StructuredInput) -> ModelResponse:
     # Initialize response structure
     response: ModelResponse = {"topic": structured_input["topic"], "models": {}}
 
+    # Create content generator
+    generator = SimulatedContentGenerator()
+
     # Generate content for each model and section
     for model_name in structured_input["models"]:
         logger.debug(f"Generating content for model: {model_name}")
@@ -41,9 +179,8 @@ def generate_response(structured_input: StructuredInput) -> ModelResponse:
         for section_name in structured_input["sections"]:
             logger.debug(f"Generating {section_name} section for {model_name}")
 
-            # In a real implementation, this would call an actual LLM API
-            # Here we're just creating placeholder content
-            content = _simulate_content_generation(
+            # Generate content for this model and section
+            content = generator.generate(
                 model_name, section_name, structured_input["topic"]
             )
 
@@ -78,29 +215,16 @@ def ensure_complete_response(
         logger.info("Response is already complete")
         return response
 
+    # Create content generator for filling missing sections
+    generator = SimulatedContentGenerator()
+
     # Generate content for missing sections
-    updated_response = _fill_missing_sections(response, missing_sections)
+    updated_response = _fill_missing_sections(
+        response, missing_sections, generator, structured_input["topic"]
+    )
 
     logger.info("Response completeness check finished")
     return updated_response
-
-
-def _simulate_content_generation(model_name: str, section_name: str, topic: str) -> str:
-    """
-    Simulate content generation for development/testing purposes.
-
-    In a production system, this would call an actual LLM API service.
-
-    Args:
-        model_name: The name of the model to simulate
-        section_name: The section to generate content for
-        topic: The main topic of the content
-
-    Returns:
-        Simulated content as a string
-    """
-    # This is a placeholder. In a real implementation, this would call an LLM API
-    return f"Simulated {section_name} content for {model_name} about {topic}."
 
 
 def _identify_missing_sections(
@@ -137,7 +261,10 @@ def _identify_missing_sections(
 
 
 def _fill_missing_sections(
-    response: ModelResponse, missing_sections: Dict[str, List[str]]
+    response: ModelResponse,
+    missing_sections: Dict[str, List[str]],
+    generator: ContentGenerator,
+    topic: str,
 ) -> ModelResponse:
     """
     Generate content to fill in missing sections in the response.
@@ -145,12 +272,13 @@ def _fill_missing_sections(
     Args:
         response: The incomplete model response
         missing_sections: Dictionary mapping models to their missing sections
+        generator: Content generator instance
+        topic: The main topic for content generation
 
     Returns:
         Updated ModelResponse with previously missing sections filled in
     """
     updated_response = response.copy()
-    topic = response["topic"]
 
     for model_name, sections in missing_sections.items():
         # Ensure model exists in response
@@ -162,7 +290,7 @@ def _fill_missing_sections(
             logger.debug(f"Filling missing {section_name} for {model_name}")
 
             # Generate content for the missing section
-            content = _simulate_content_generation(model_name, section_name, topic)
+            content = generator.generate(model_name, section_name, topic)
             updated_response["models"][model_name][section_name] = content
 
     return updated_response

@@ -1,13 +1,26 @@
+#!/usr/bin/env python
 """
-Main entry point for the LLM Forge prototype.
+Recursive LLM Reasoning Framework with Self-Correction.
 
-This module provides a demonstration of the recursive LLM reasoning framework
-by processing a sample prompt and generating a structured response. It serves
-as the primary interface for running the LLM Forge system from the command line.
+This module implements a multi-component system for generating structured
+AI responses with recursive refinement. It parses user prompts into structured
+requests, generates content for each section, and applies recursive correction
+to enhance output quality.
+
+This module provides the complete end-to-end pipeline for the LLM Forge system,
+including both the processing logic and a demonstration entry point.
 """
 
 import json
 from typing import Final
+
+# Ensure NLTK 'punkt' tokenizer is available
+import nltk  # type: ignore
+
+try:
+    nltk.data.find("tokenizers/punkt")  # type: ignore
+except LookupError:
+    nltk.download("punkt")  # type: ignore
 
 from llm_forge.logging_config import configure_logging
 from llm_forge.response_loop import process_user_prompt
@@ -21,11 +34,11 @@ def main() -> None:
     """
     Execute the main program workflow for the LLM Forge system.
 
-    Orchestrates the entire process from parsing an example prompt to
+    This function orchestrates the entire process from parsing an example prompt to
     generating structured content, refining it recursively, and outputting
     the final comprehensive response with multiple models and sections.
 
-    This function demonstrates the full pipeline in action using an example
+    The function demonstrates the full pipeline in action using an example
     prompt comparing different LLM architectures.
 
     Returns:
