@@ -6,6 +6,7 @@ by orchestrating content generation, organizing the results, and ensuring
 complete coverage of requested sections across all models.
 """
 
+import re
 from typing import Dict, Final, List, Optional
 
 from llm_forge.content_generator import ensure_complete_response, generate_response
@@ -82,9 +83,9 @@ def _validate_comparison_input(structured_input: StructuredInput) -> None:
         raise ValueError("Comparison requires a topic to analyze")
 
     # Validate model names (prevent injection or invalid names)
-    valid_model_pattern = r'^[a-zA-Z0-9_\-\.]+$'
+    # Model names should only contain alphanumeric chars, underscores, hyphens, and periods
     for model in structured_input["models"]:
-        if not isinstance(model, str) or not model:
+        if not model or not re.match(r'^[a-zA-Z0-9_\-\.]+$', model):
             raise ValueError(f"Invalid model name: {model}")
 
     # Enforce reasonable limits

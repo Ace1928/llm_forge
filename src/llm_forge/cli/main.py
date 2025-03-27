@@ -7,15 +7,15 @@ with commands for generating model comparisons and other utilities.
 """
 
 import sys
-from typing import Dict, Literal, Optional, Union
+from typing import Dict, Literal, Optional, Union, cast
 
 import click
 from click import Context
 
-# Import version explicitly from package with a type definition
+# Import version explicitly from package
 from llm_forge import __version__  # type: ignore
 from llm_forge.comparison_generator import generate_comparison
-from llm_forge.formatters.renderer import render_output
+from llm_forge.formatters.renderer import FormatType, render_output
 from llm_forge.input_parser import parse_input
 from llm_forge.logging_config import configure_logging
 
@@ -85,13 +85,14 @@ def compare(
 
         # Override models if specified in the command
         if models:
-            structured_input.models = list(models)
+            structured_input["models"] = list(models)
 
         # Generate the comparison
         comparison_data = generate_comparison(structured_input)
 
         # Render the output in the requested format
-        rendered_output = render_output(comparison_data, format)
+        # Cast to FormatType to ensure type safety
+        rendered_output = render_output(comparison_data, cast(FormatType, format))
 
         # Write to file or stdout
         if output:
