@@ -43,7 +43,7 @@ def process_user_prompt(user_prompt: str) -> ModelResponse:
         user_prompt: The raw user input text to process
 
     Returns:
-        ModelResponse: A structured response with content for each model and section
+        A structured response with content for each model and section
 
     Raises:
         ValueError: If the prompt cannot be properly parsed or is empty

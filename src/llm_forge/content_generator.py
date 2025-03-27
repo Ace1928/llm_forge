@@ -7,14 +7,14 @@ generation of complete, well-formatted responses.
 """
 
 import random
-from typing import Dict, List
+from typing import Dict, Final, List
 
 from llm_forge.logging_config import configure_logging
 from llm_forge.templates.content_templates import get_section_template
 from llm_forge.type_definitions import ContentGenerator, ModelResponse, StructuredInput
 
 # Configure logging
-logger = configure_logging()
+logger: Final = configure_logging()
 
 
 class SimulatedContentGenerator:
@@ -32,7 +32,7 @@ class SimulatedContentGenerator:
         Args:
             randomize: Whether to add random variations to generated content
         """
-        self.randomize = randomize
+        self.randomize: bool = randomize
 
     def generate(self, model: str, section: str, topic: str) -> str:
         """
@@ -47,10 +47,10 @@ class SimulatedContentGenerator:
             Generated content as a string
         """
         # Get template for this section
-        template = get_section_template(section)
+        template: str = get_section_template(section)
 
         # Fill in template with model-specific information
-        content = template.format(
+        content: str = template.format(
             model=model.upper(),
             topic=topic,
             # Add some model-specific characteristics
@@ -73,7 +73,7 @@ class SimulatedContentGenerator:
         Returns:
             Dictionary of model characteristics
         """
-        characteristics = {
+        characteristics: Final[Dict[str, Dict[str, str]]] = {
             "gpt": {
                 "architecture": "transformer-based autoregressive language model",
                 "training": "trained on diverse internet text with reinforcement learning from human feedback",
@@ -132,7 +132,7 @@ class SimulatedContentGenerator:
             Content with added variations
         """
         # Add some filler phrases randomly
-        fillers = [
+        fillers: Final[List[str]] = [
             "It's worth noting that ",
             "Interestingly, ",
             "According to recent research, ",
@@ -140,7 +140,7 @@ class SimulatedContentGenerator:
             "Based on available information, ",
         ]
 
-        sentences = content.split(". ")
+        sentences: List[str] = content.split(". ")
 
         # Add a filler to about 30% of sentences
         for i in range(len(sentences)):
@@ -169,7 +169,7 @@ def generate_response(structured_input: StructuredInput) -> ModelResponse:
     response: ModelResponse = {"topic": structured_input["topic"], "models": {}}
 
     # Create content generator
-    generator = SimulatedContentGenerator()
+    generator: SimulatedContentGenerator = SimulatedContentGenerator()
 
     # Generate content for each model and section
     for model_name in structured_input["models"]:
@@ -180,7 +180,7 @@ def generate_response(structured_input: StructuredInput) -> ModelResponse:
             logger.debug(f"Generating {section_name} section for {model_name}")
 
             # Generate content for this model and section
-            content = generator.generate(
+            content: str = generator.generate(
                 model_name, section_name, structured_input["topic"]
             )
 
@@ -208,7 +208,7 @@ def ensure_complete_response(
     logger.info("Checking response completeness")
 
     # Identify missing sections for each model
-    missing_sections = _identify_missing_sections(response, structured_input)
+    missing_sections: Dict[str, List[str]] = _identify_missing_sections(response, structured_input)
 
     # If everything is complete, return as is
     if not any(sections for sections in missing_sections.values()):
@@ -216,10 +216,10 @@ def ensure_complete_response(
         return response
 
     # Create content generator for filling missing sections
-    generator = SimulatedContentGenerator()
+    generator: SimulatedContentGenerator = SimulatedContentGenerator()
 
     # Generate content for missing sections
-    updated_response = _fill_missing_sections(
+    updated_response: ModelResponse = _fill_missing_sections(
         response, missing_sections, generator, structured_input["topic"]
     )
 
@@ -278,7 +278,10 @@ def _fill_missing_sections(
     Returns:
         Updated ModelResponse with previously missing sections filled in
     """
-    updated_response = response.copy()
+    updated_response: ModelResponse = {
+        "topic": response["topic"],
+        "models": {**response["models"]}
+    }
 
     for model_name, sections in missing_sections.items():
         # Ensure model exists in response
@@ -290,7 +293,7 @@ def _fill_missing_sections(
             logger.debug(f"Filling missing {section_name} for {model_name}")
 
             # Generate content for the missing section
-            content = generator.generate(model_name, section_name, topic)
+            content: str = generator.generate(model_name, section_name, topic)
             updated_response["models"][model_name][section_name] = content
 
     return updated_response

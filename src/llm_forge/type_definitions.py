@@ -27,7 +27,7 @@ class StructuredInput(TypedDict):
     """
     Structured representation of a parsed user prompt.
 
-    Attributes:
+    Args:
         models: List of model names to generate responses for
         sections: List of section names to include in responses
         raw_prompt: The original unmodified user prompt
@@ -44,7 +44,7 @@ class ModelSectionContent(TypedDict):
     """
     Content for a specific section of a model's response.
 
-    Attributes:
+    Args:
         content: The generated text for this section
         metadata: Optional metadata about the generation process
     """
@@ -67,7 +67,7 @@ class ModelResponse(TypedDict):
     """
     Structured representation of generated model responses.
 
-    Attributes:
+    Args:
         topic: The main subject of the response
         models: Dictionary mapping model names to their section responses
     """

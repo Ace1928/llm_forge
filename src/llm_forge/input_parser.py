@@ -7,7 +7,7 @@ LLM system for content generation.
 """
 
 import re
-from typing import List, Optional
+from typing import Final, List, Optional
 
 # Type stub for nltk.tokenize functions
 from nltk.tokenize import sent_tokenize  # type: ignore
@@ -15,7 +15,7 @@ from nltk.tokenize import sent_tokenize  # type: ignore
 from llm_forge.logging_config import configure_logging
 from llm_forge.type_definitions import StructuredInput
 
-logger = configure_logging()
+logger: Final = configure_logging()
 
 
 def parse_input(user_prompt: str) -> StructuredInput:
@@ -41,15 +41,15 @@ def parse_input(user_prompt: str) -> StructuredInput:
         raise ValueError("The prompt cannot be empty")
 
     # Extract topic from the prompt
-    topic = _extract_topic(user_prompt)
+    topic: str = _extract_topic(user_prompt)
     logger.debug(f"Extracted topic: {topic}")
 
     # Extract model names, defaulting to standard models if none found
-    models = _extract_models(user_prompt) or ["gpt", "claude", "llama"]
+    models: List[str] = _extract_models(user_prompt) or ["gpt", "claude", "llama"]
     logger.debug(f"Identified models: {models}")
 
     # Extract content sections, defaulting to standard sections if none found
-    sections = _extract_sections(user_prompt) or [
+    sections: List[str] = _extract_sections(user_prompt) or [
         "overview",
         "technical_details",
         "advantages",
@@ -108,7 +108,7 @@ def _extract_models(prompt: str) -> List[str]:
         List of model names found in the prompt, or empty list if none found
     """
     # Common model keywords to look for
-    model_keywords: List[str] = [
+    model_keywords: Final[List[str]] = [
         "gpt",
         "llama",
         "claude",
@@ -122,7 +122,7 @@ def _extract_models(prompt: str) -> List[str]:
     ]
 
     found_models: List[str] = []
-    lower_prompt = prompt.lower()
+    lower_prompt: str = prompt.lower()
 
     for model in model_keywords:
         if model in lower_prompt:
@@ -145,7 +145,7 @@ def _extract_sections(prompt: str) -> List[str]:
         List of section names identified in the prompt, or empty list if none found
     """
     # Check for numbered or bulleted lists
-    list_pattern = r"\n\s*(?:[0-9]+\.|\-|\*)\s*([^:]+)(?::)?"
+    list_pattern: Final[str] = r"\n\s*(?:[0-9]+\.|\-|\*)\s*([^:]+)(?::)?"
     list_matches: List[str] = re.findall(list_pattern, prompt)
 
     if list_matches:
@@ -166,6 +166,6 @@ def _standardize_section_name(section: str) -> str:
         A standardized, snake_case section identifier
     """
     # Remove any non-alphanumeric characters and convert to lowercase
-    cleaned = re.sub(r"[^a-zA-Z0-9\s]", "", section.lower())
+    cleaned: str = re.sub(r"[^a-zA-Z0-9\s]", "", section.lower())
     # Replace spaces with underscores
     return re.sub(r"\s+", "_", cleaned.strip())

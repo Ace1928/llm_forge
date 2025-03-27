@@ -19,8 +19,8 @@ Usage:
     >>> print(response["topic"])
 """
 
-from typing import Final
+from typing import Final, List
 
 __version__: Final[str] = "0.1.0"
 
-all = ["__version__"]
+__all__: Final[List[str]] = ["__version__"]
