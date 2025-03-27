@@ -13,6 +13,7 @@ import click
 from click import Context
 
 # Import version explicitly from package
+from llm_forge import __version__  # type: ignore
 from llm_forge.comparison_generator import generate_comparison
 from llm_forge.formatters.renderer import FormatType, render_output
 from llm_forge.input_parser import parse_input
@@ -26,6 +27,7 @@ ExitCode = Union[Literal[0], Literal[1]]
 
 
 @click.group()
+@click.version_option(str(__version__), prog_name="LLM Forge")
 @click.pass_context
 def cli(ctx: Context) -> None:
     """

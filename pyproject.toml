@@ -1,46 +1,44 @@
 [build-system]
-requires      = [ "setuptools>=42.0.0", "wheel>=0.37.0" ]
+requires      = [ "setuptools>=61.0.0", "wheel" ]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "llm_forge"
 version = "0.1.0"
-description = "A recursive framework for language model development, orchestration, and deployment"
-authors = [ { name = "Lloyd Handyside", email = "ace1928@gmail.com" } ]
+description = "A tool for comparing different LLM models based on natural language prompts"
 readme = "README.md"
-requires-python = ">=3.8,<3.13"
+requires-python = ">=3.8"
 license = { text = "MIT" }
+authors = [ { name = "Eidosian Forge", email = "contact@example.com" } ]
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
-    "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
-    "Topic :: Scientific/Engineering :: Artificial Intelligence",
-    "Topic :: Software Development :: Libraries",
 ]
-keywords = [
-    "llm",
-    "forge",
-    "language model",
-    "processing",
-    "orchestration",
-    "ai",
-    "generative",
-    "pipeline",
-]
+dynamic = [ "dependencies" ]
+
+[project.scripts]
+llm-forge = "llm_forge.cli.main:main"
 
 [project.urls]
-Homepage      = "https://github.com/Ace1928/llm_forge"
-Repository    = "https://github.com/Ace1928/llm_forge"
-Documentation = "https://github.com/Ace1928/llm_forge/docs"
-"Bug Tracker" = "https://github.com/Ace1928/llm_forge/issues"
-"Change Log"  = "https://github.com/Ace1928/llm_forge/blob/main/CHANGELOG.md"
+"Homepage"    = "https://github.com/example/llm_forge"
+"Bug Tracker" = "https://github.com/example/llm_forge/issues"
+
+[tool.setuptools.dynamic]
+dependencies = { file = [ "requirements.txt" ] }
+
+[tool.setuptools.packages.find]
+where   = [ "src" ]
+include = [ "llm_forge*" ]
+exclude = [ "test*" ]
+
+[tool.setuptools.package-data]
+"llm_forge.templates" = [ "*.jinja", "*.txt", "*.html" ]
 
 [project.optional-dependencies]
 dev = [
@@ -64,9 +62,6 @@ testing = [
     "tox>=4.0.0,<5.0.0",
 ]
 all = [ "llm_forge[dev,docs,testing]" ]
-
-[project.scripts]
-llm-forge = "llm_forge.cli.main:main"
 
 [tool.isort]
 profile     = "black"
