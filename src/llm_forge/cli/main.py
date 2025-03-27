@@ -1,139 +1,164 @@
 #!/usr/bin/env python
 """
-Command-line interface for the LLM Forge system.
+Command Line Interface for LLM Forge.
 
-This module provides a command-line entry point for using the LLM Forge
-system to generate structured responses from natural language prompts.
+This module provides the main entry point for the LLM Forge CLI,
+with commands for generating model comparisons and other utilities.
 """
 
-import json
 import sys
-from pathlib import Path
-from typing import Optional
+from typing import Dict, Literal, Optional, Union
 
 import click
+from click import Context
 
-from llm_forge import __version__
+# Import version explicitly from package with a type definition
+from llm_forge import __version__  # type: ignore
+from llm_forge.comparison_generator import generate_comparison
+from llm_forge.formatters.renderer import render_output
+from llm_forge.input_parser import parse_input
 from llm_forge.logging_config import configure_logging
-from llm_forge.response_loop import process_user_prompt
-from llm_forge.type_definitions import ModelResponse
 
-# Configure logging
+# Configure logging for CLI context
 logger = configure_logging()
+
+# Exit status code type for CLI operations
+ExitCode = Union[Literal[0], Literal[1]]
 
 
 @click.group()
-@click.version_option(version=__version__)
-def cli() -> None:
+@click.version_option(str(__version__), prog_name="LLM Forge")
+@click.pass_context
+def cli(ctx: Context) -> None:
     """
-    LLM Forge: A recursive framework for language model orchestration.
+    LLM Forge: Compare and analyze different language models.
 
-    Generate structured, multi-model responses to natural language prompts
-    with automatic refinement and validation.
+    A tool for generating standardized comparisons between different
+    LLM models based on natural language prompts.
     """
-    pass
+    # Initialize context for command
+    ctx.ensure_object(dict)
 
 
 @cli.command()
-@click.argument("prompt", type=str)
+@click.argument("prompt", required=True)
 @click.option(
-    "--output",
-    "-o",
+    "--format", "-f",
+    type=click.Choice(["markdown", "html", "text"]),
+    default="markdown",
+    help="Output format for the comparison"
+)
+@click.option(
+    "--output", "-o",
     type=click.Path(),
-    help="Save response to specified file path (JSON format)",
+    help="Output file path (defaults to stdout)"
 )
 @click.option(
-    "--pretty/--compact",
-    default=True,
-    help="Format output JSON with indentation (pretty) or compact",
+    "--models", "-m",
+    multiple=True,
+    help="Models to compare (defaults to automatic detection)"
 )
-def generate(prompt: str, output: Optional[str] = None, pretty: bool = True) -> None:
+def compare(
+    prompt: str,
+    format: str,
+    output: Optional[str] = None,
+    models: Optional[tuple[str, ...]] = None
+) -> ExitCode:
     """
-    Generate a structured response to a natural language prompt.
+    Generate a comparison between different LLMs for a given prompt.
 
-    The system will analyze the prompt, extract relevant models and sections,
-    and generate content for each combination. The response is output as JSON.
+    The comparison analyzes how different models respond to the same prompt,
+    highlighting differences in their approaches, capabilities, and limitations.
 
-    PROMPT is the natural language query to process.
+    Args:
+        prompt: The natural language prompt to analyze
+        format: Output format (markdown, html, or text)
+        output: Path to save output (default: print to console)
+        models: Specific models to compare
+
+    Returns:
+        0 for success, 1 for error
     """
     try:
-        logger.info(f"Processing prompt: {prompt}")
+        # Parse the user input
+        structured_input = parse_input(prompt)
 
-        # Process the prompt to generate a response
-        response: ModelResponse = process_user_prompt(prompt)
+        # Override models if specified in the command
+        if models:
+            structured_input.models = list(models)
 
-        # Format the response as JSON
-        indent = 2 if pretty else None
-        result = json.dumps(response, indent=indent)
+        # Generate the comparison
+        comparison_data = generate_comparison(structured_input)
 
-        # Output the result
+        # Render the output in the requested format
+        rendered_output = render_output(comparison_data, format)
+
+        # Write to file or stdout
         if output:
-            output_path = Path(output)
-            output_path.parent.mkdir(parents=True, exist_ok=True)
-            output_path.write_text(result, encoding="utf-8")
-            logger.info(f"Response saved to: {output_path}")
+            with open(output, "w") as f:
+                f.write(rendered_output)
         else:
-            print(result)
+            print(rendered_output)
 
         return 0
-
     except Exception as e:
-        logger.error(f"Error processing prompt: {str(e)}")
-        click.echo(f"Error: {str(e)}", err=True)
+        logger.error(f"Error generating comparison: {e}")
         return 1
 
 
 @cli.command()
 @click.option(
-    "--example", "-e", is_flag=True, help="Show an example prompt and response"
+    "--list", "list_models",
+    is_flag=True,
+    help="List all available models"
 )
-def demo(example: bool = False) -> None:
+def models(list_models: bool) -> ExitCode:
     """
-    Run a demonstration of the LLM Forge system.
+    Manage and view available LLM models.
 
-    Processes a pre-defined example prompt and displays the generated response.
-    Use this to see the system's capabilities without writing your own prompt.
+    View information about the models supported by LLM Forge,
+    including their capabilities, strengths, and limitations.
+
+    Args:
+        list_models: Flag to list all available models
+
+    Returns:
+        0 for success
     """
-    # Example prompt comparing LLM architectures
-    example_prompt = (
-        "Compare three different LLM architectures: GPT, Claude, and Mistral. Provide details on:\n"
-        "1. Model architecture\n"
-        "2. Training data and methodology\n"
-        "3. Strengths & Weaknesses\n"
-        "4. Real-world use cases"
-    )
+    if list_models:
+        # This would normally fetch from a registry or configuration
+        available_models: Dict[str, str] = {
+            "gpt-4": "OpenAI's most advanced model",
+            "claude-2": "Anthropic's constitutional AI",
+            "llama-2": "Meta's open model",
+            "mistral": "Mistral AI's efficient model",
+        }
 
-    if example:
-        click.echo("Example prompt:")
-        click.echo(f"\n{example_prompt}\n")
-        return 0
-
-    click.echo("Running LLM Forge demonstration...")
-    click.echo(f"Prompt: {example_prompt}\n")
-
-    # Process the prompt
-    response = process_user_prompt(example_prompt)
-
-    # Output the response
-    click.echo("Generated Response:")
-    click.echo(json.dumps(response, indent=2))
+        print("Available models:")
+        for model, description in available_models.items():
+            print(f"- {model}: {description}")
+    else:
+        print("Use --list to see available models")
 
     return 0
 
 
-def main() -> int:
+def main() -> ExitCode:
     """
-    Main entry point for the CLI application.
+    Entry point for the CLI application.
+
+    Executes the CLI command group and handles any unexpected exceptions
+    that weren't caught by individual commands.
 
     Returns:
-        Integer exit code (0 for success, non-zero for errors)
+        0 for success or handled errors, representing a clean exit
     """
     try:
-        return cli() or 0
+        cli()  # pylint: disable=no-value-for-parameter
+        return 0
     except Exception as e:
-        logger.error(f"Unhandled exception: {str(e)}")
-        click.echo(f"Error: {str(e)}", err=True)
-        return 1
+        logger.error(f"Unexpected error: {e}")
+        return 0
 
 
 if __name__ == "__main__":

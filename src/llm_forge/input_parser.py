@@ -78,18 +78,18 @@ def _extract_topic(prompt: str) -> str:
     """
     # Simple implementation - in a real system, this would use more
     # sophisticated NLP techniques to extract the actual topic
-    sentences: List[str] = sent_tokenize(prompt)
-    first_sentence = sentences[0] if sentences else prompt
+    sentences: List[str] = sent_tokenize(prompt) if prompt else []
+    first_sentence: str = sentences[0] if sentences else prompt
 
     # Look for comparison patterns
     compare_match: Optional[re.Match[str]] = re.search(
         r"compare\s+(\w+(?:\s+\w+)*)", first_sentence, re.IGNORECASE
     )
-    if compare_match:
+    if compare_match and compare_match.group(1):
         return compare_match.group(1)
 
     # Default extraction from first sentence
-    words = first_sentence.split()
+    words: List[str] = first_sentence.split()
     if len(words) > 5:
         return " ".join(words[:5]) + "..."
     return first_sentence
