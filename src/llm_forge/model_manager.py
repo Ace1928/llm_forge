@@ -10,6 +10,7 @@ import abc
 import os
 import time
 from typing import (
+    TYPE_CHECKING,
     Any,
     Dict,
     Final,
@@ -19,6 +20,7 @@ from typing import (
     Optional,
     Protocol,
     Tuple,
+    Type,
     TypedDict,
     TypeVar,
     cast,
@@ -28,6 +30,10 @@ from pydantic import BaseModel, SecretStr, field_validator
 
 from llm_forge.logging_config import configure_logging
 from llm_forge.type_definitions import ModelType
+
+# Type checking imports that won't be evaluated at runtime
+if TYPE_CHECKING:
+    pass
 
 # Configure module-specific logger
 logger = configure_logging()
@@ -91,7 +97,18 @@ class ModelConfig(BaseModel):
     @field_validator("temperature")
     @classmethod
     def validate_temperature(cls, v: float) -> float:
-        """Validate temperature is between 0 and 1."""
+        """
+        Validate temperature is between 0 and 1.
+
+        Args:
+            v: The temperature value to validate
+
+        Returns:
+            The validated temperature value
+
+        Raises:
+            ValueError: If temperature is outside valid range
+        """
         if not 0 <= v <= 1:
             raise ValueError("Temperature must be between 0.0 and 1.0")
         return v
@@ -99,7 +116,18 @@ class ModelConfig(BaseModel):
     @field_validator("max_tokens")
     @classmethod
     def validate_max_tokens(cls, v: int) -> int:
-        """Validate max_tokens is positive."""
+        """
+        Validate max_tokens is positive.
+
+        Args:
+            v: The max_tokens value to validate
+
+        Returns:
+            The validated max_tokens value
+
+        Raises:
+            ValueError: If max_tokens is not positive
+        """
         if v <= 0:
             raise ValueError("max_tokens must be positive")
         return v
@@ -178,6 +206,21 @@ class ModelRequestError(Exception):
         super().__init__(f"{provider} error: {message}")
 
 
+# Type for OpenAI API errors
+class OpenAIError(Exception):
+    """Base exception for OpenAI API errors."""
+
+    def __init__(self, *args: Any) -> None:
+        """
+        Initialize OpenAI error.
+
+        Args:
+            *args: Error information
+        """
+        super().__init__(*args)
+        self.response: Optional[Any] = None
+
+
 class BaseModelProvider(abc.ABC):
     """Abstract base class for LLM provider implementations."""
 
@@ -219,11 +262,16 @@ class BaseModelProvider(abc.ABC):
         pass
 
     def _validate_api_key(self) -> None:
-        """Validate the API key exists."""
+        """
+        Validate the API key exists.
+
+        Raises:
+            ValueError: If API key is empty
+        """
         if not self.config.api_key.get_secret_value():
             raise ValueError(f"API key for {self.provider_name} is required")
 
-    def _handle_rate_limit(self, retry_after: Optional[int] = None) -> None:
+    def handle_rate_limit(self, retry_after: Optional[int] = None) -> None:
         """
         Handle rate limiting by waiting.
 
@@ -267,10 +315,7 @@ class OpenAIProvider(BaseModelProvider):
         """
         try:
             import openai
-            from openai.types.chat import (
-                ChatCompletionMessage,
-                ChatCompletionUserMessageParam,
-            )
+            from openai.types.chat import ChatCompletion
 
             # Configure API key from config
             openai.api_key = self.config.api_key.get_secret_value()
@@ -285,35 +330,45 @@ class OpenAIProvider(BaseModelProvider):
 
             # Make the API call
             client = openai.OpenAI(api_key=openai.api_key)
-            response = client.chat.completions.create(**params)
-            return str(response.choices[0].message.content)
+            response: ChatCompletion = client.chat.completions.create(**params)
+
+            # Extract content safely
+            content = ""
+            if response.choices and len(response.choices) > 0:
+                message = response.choices[0].message
+                if message and message.content:
+                    content = message.content
+
+            return content
 
         except ImportError:
             raise ImportError(
                 "OpenAI package not installed. Install with 'pip install openai>=1.0.0'."
             )
         except Exception as e:
-            # Handle OpenAI specific errors
-            if (
-                hasattr(e, "response")
-                and getattr(e, "response", None)
-                and getattr(e.response, "status_code", 0) == 429
-            ):
-                retry_after = 5
-                if hasattr(e, "response") and hasattr(e.response, "headers"):
-                    retry_after = int(e.response.headers.get("retry-after", 5))
-                raise ModelRequestError(
-                    "Rate limit exceeded", "openai", 429, retry_after
-                )
+            # Handle OpenAI specific errors with proper type checking
+            status_code = None
+            retry_after = None
 
-            if (
-                hasattr(e, "response")
-                and getattr(e, "response", None)
-                and getattr(e.response, "status_code", 0) >= 500
-            ):
-                raise ModelRequestError(str(e), "openai", 500)
+            # Check for rate limiting
+            if hasattr(e, "response") and getattr(e, "response", None) is not None:
+                err_response = getattr(e, "response")
+                if hasattr(err_response, "status_code"):
+                    status_code = err_response.status_code
+                    if status_code == 429:
+                        if hasattr(err_response, "headers"):
+                            retry_after_header = err_response.headers.get("retry-after")
+                            retry_after = (
+                                int(retry_after_header) if retry_after_header else 5
+                            )
+                        raise ModelRequestError(
+                            "Rate limit exceeded", "openai", status_code, retry_after
+                        )
+                    elif status_code >= 500:
+                        raise ModelRequestError(str(e), "openai", status_code)
 
-            raise ModelRequestError(str(e), "openai")
+            # For all other errors
+            raise ModelRequestError(str(e), "openai", status_code)
 
     def generate_with_metadata(
         self, prompt: str, **kwargs: Any
@@ -336,7 +391,7 @@ class OpenAIProvider(BaseModelProvider):
         """
         try:
             import openai
-            from openai.types.chat import ChatCompletionMessage
+            from openai.types.chat import ChatCompletion
 
             # Configure API key from config
             openai.api_key = self.config.api_key.get_secret_value()
@@ -351,17 +406,34 @@ class OpenAIProvider(BaseModelProvider):
 
             # Make the API call
             client = openai.OpenAI(api_key=openai.api_key)
-            response = client.chat.completions.create(**params)
+            response: ChatCompletion = client.chat.completions.create(**params)
 
             # Extract text and metadata
-            text = str(response.choices[0].message.content)
+            content = ""
+            if response.choices and len(response.choices) > 0:
+                message = response.choices[0].message
+                if message and message.content:
+                    content = message.content
+
+            # Initialize default metadata
             metadata: Dict[str, float] = {
-                "total_tokens": float(response.usage.total_tokens),
-                "completion_tokens": float(response.usage.completion_tokens),
-                "prompt_tokens": float(response.usage.prompt_tokens),
+                "total_tokens": 0.0,
+                "completion_tokens": 0.0,
+                "prompt_tokens": 0.0,
             }
 
-            return text, metadata
+            # Extract token usage metrics if available
+            if response.usage:
+                if hasattr(response.usage, "total_tokens"):
+                    metadata["total_tokens"] = float(response.usage.total_tokens)
+                if hasattr(response.usage, "completion_tokens"):
+                    metadata["completion_tokens"] = float(
+                        response.usage.completion_tokens
+                    )
+                if hasattr(response.usage, "prompt_tokens"):
+                    metadata["prompt_tokens"] = float(response.usage.prompt_tokens)
+
+            return content, metadata
 
         except ImportError:
             raise ImportError(
@@ -403,6 +475,7 @@ class AnthropicProvider(BaseModelProvider):
         """
         try:
             import anthropic
+            from anthropic.types import Completion
 
             # Initialize client
             client = anthropic.Anthropic(api_key=self.config.api_key.get_secret_value())
@@ -418,8 +491,14 @@ class AnthropicProvider(BaseModelProvider):
             }
 
             # Make the API call
-            response = client.completions.create(**params)
-            return str(response.completion)
+            response: Completion = client.completions.create(**params)
+
+            # Extract content safely
+            completion = ""
+            if hasattr(response, "completion"):
+                completion = str(response.completion)
+
+            return completion
 
         except ImportError:
             raise ImportError(
@@ -455,7 +534,7 @@ class AnthropicProvider(BaseModelProvider):
         # Anthropic doesn't return token counts in the same way
         # Estimate based on text length (rough approximation)
         metadata: Dict[str, float] = {
-            "estimated_tokens": len(text) / 4,  # Very rough estimate
+            "estimated_tokens": float(len(text) / 4),  # Very rough estimate
         }
 
         return text, metadata
@@ -494,23 +573,37 @@ class MistralProvider(BaseModelProvider):
         try:
             # Import locally to handle missing dependency gracefully
             from mistralai.client import MistralClient
-            from mistralai.models.chat_completion import ChatMessage
+            from mistralai.models.chat_completion import (
+                ChatCompletionResponse,
+                ChatMessage,
+            )
 
             # Initialize client
             client = MistralClient(api_key=self.config.api_key.get_secret_value())
 
-            # Create message list
+            # Create message list with proper typing
             messages = [ChatMessage(role="user", content=prompt)]
 
             # Make the API call
-            response = client.chat(
+            response: ChatCompletionResponse = client.chat(
                 model=self.config.model_id,
                 messages=messages,
                 temperature=kwargs.get("temperature", self.config.temperature),
                 max_tokens=kwargs.get("max_tokens", self.config.max_tokens),
             )
 
-            return str(response.choices[0].message.content)
+            # Extract content safely
+            content = ""
+            if (
+                hasattr(response, "choices")
+                and response.choices
+                and len(response.choices) > 0
+            ):
+                message = response.choices[0].message
+                if hasattr(message, "content") and message.content:
+                    content = message.content
+
+            return content
 
         except ImportError:
             raise ImportError(
@@ -541,30 +634,46 @@ class MistralProvider(BaseModelProvider):
         try:
             # Import locally to handle missing dependency gracefully
             from mistralai.client import MistralClient
-            from mistralai.models.chat_completion import ChatMessage
+            from mistralai.models.chat_completion import (
+                ChatCompletionResponse,
+                ChatMessage,
+            )
 
             # Initialize client
             client = MistralClient(api_key=self.config.api_key.get_secret_value())
 
-            # Create message list
+            # Create message list with proper typing
             messages = [ChatMessage(role="user", content=prompt)]
 
             # Make the API call
-            response = client.chat(
+            response: ChatCompletionResponse = client.chat(
                 model=self.config.model_id,
                 messages=messages,
                 temperature=kwargs.get("temperature", self.config.temperature),
                 max_tokens=kwargs.get("max_tokens", self.config.max_tokens),
             )
 
-            text = str(response.choices[0].message.content)
+            # Extract content safely
+            content = ""
+            if (
+                hasattr(response, "choices")
+                and response.choices
+                and len(response.choices) > 0
+            ):
+                message = response.choices[0].message
+                if hasattr(message, "content") and message.content:
+                    content = message.content
 
-            # Extract metadata
+            # Extract metadata safely
             metadata: Dict[str, float] = {
-                "usage": float(response.usage.total_tokens),
+                "usage": 0.0,
             }
 
-            return text, metadata
+            if hasattr(response, "usage") and response.usage:
+                if hasattr(response.usage, "total_tokens"):
+                    metadata["usage"] = float(response.usage.total_tokens)
+
+            return content, metadata
 
         except ImportError:
             raise ImportError(
@@ -584,7 +693,7 @@ class ModelManager:
     """
 
     # Map model types to provider classes
-    _PROVIDER_MAP: Final[Dict[ProviderType, type]] = {
+    _PROVIDER_MAP: Final[Dict[ProviderType, Type[BaseModelProvider]]] = {
         "openai": OpenAIProvider,
         "anthropic": AnthropicProvider,
         "mistral": MistralProvider,
@@ -670,7 +779,7 @@ class ModelManager:
             return None
 
         # Find a configured provider that matches
-        for key, provider in self._providers.items():
+        for _, provider in self._providers.items():
             if provider.provider_name == provider_type:
                 return provider
 
@@ -713,7 +822,7 @@ class ModelManager:
 
                 # Handle rate limiting specially
                 if e.status_code == 429 and e.retry_after:
-                    provider._handle_rate_limit(e.retry_after)
+                    provider.handle_rate_limit(e.retry_after)
                 elif attempts < max_retries:
                     # Exponential backoff for other errors
                     wait_time = 2**attempts
@@ -734,7 +843,7 @@ class ModelManager:
         """
         available: Dict[ModelType, List[str]] = {}
 
-        for provider_key, provider in self._providers.items():
+        for _, provider in self._providers.items():
             provider_name = provider.provider_name
 
             # Map provider to model type

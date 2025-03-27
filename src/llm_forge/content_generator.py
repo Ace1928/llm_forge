@@ -7,7 +7,7 @@ generation of complete, well-formatted responses.
 """
 
 import random
-from typing import Dict, Final, List, Protocol, runtime_checkable
+from typing import Dict, Final, List, Protocol, TypeVar, runtime_checkable
 
 from llm_forge.logging_config import configure_logging
 from llm_forge.model_manager import get_model_manager
@@ -21,6 +21,9 @@ from llm_forge.type_definitions import (
 
 # Configure logging
 logger: Final = configure_logging()
+
+# Type variable for generic functions
+T = TypeVar("T")
 
 
 @runtime_checkable
@@ -146,9 +149,6 @@ class ActualContentGenerator:
         Returns:
             Formatted prompt string
         """
-        # Get template for model-specific formatting
-        template = get_section_template(section)
-
         # Base prompt structure
         prompt = (
             f"Generate content about '{topic}' that would be appropriate for the "
