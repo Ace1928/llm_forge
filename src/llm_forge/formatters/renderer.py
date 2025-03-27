@@ -7,7 +7,7 @@ plain text. Each renderer ensures consistent, well-organized presentation
 of model comparisons.
 """
 
-from typing import Callable, Dict, Final, Literal
+from typing import Callable, Dict, Final, List, Literal, TypedDict
 
 from llm_forge.logging_config import configure_logging
 from llm_forge.type_definitions import ModelResponse
@@ -22,9 +22,17 @@ FormatType = Literal["markdown", "html", "text"]
 RendererFunc = Callable[[ModelResponse], str]
 
 
+# Renderer mapping type for improved type safety
+class RendererMap(TypedDict):
+    """Type definition for renderer function mapping."""
+
+    markdown: RendererFunc
+    html: RendererFunc
+    text: RendererFunc
+
+
 def render_output(
-    comparison_data: ModelResponse,
-    output_format: FormatType = "markdown"
+    comparison_data: ModelResponse, output_format: FormatType = "markdown"
 ) -> str:
     """
     Render comparison data in the specified output format.
@@ -37,25 +45,31 @@ def render_output(
         output_format: Desired output format (markdown, html, or text)
 
     Returns:
-        Formatted string representation of the comparison data
+        str: Formatted string representation of the comparison data
 
     Raises:
         ValueError: If the requested format is not supported
+
+    Examples:
+        >>> data = {"topic": "AI Models", "models": {...}}
+        >>> markdown = render_output(data, "markdown")
     """
     # Map format types to their respective rendering functions
-    format_renderers: Final[Dict[FormatType, RendererFunc]] = {
+    format_renderers: Final[RendererMap] = {
         "markdown": _render_markdown,
         "html": _render_html,
-        "text": _render_text
+        "text": _render_text,
     }
 
     # Validate the requested format
     if output_format not in format_renderers:
-        valid_formats = ", ".join(format_renderers.keys())
-        raise ValueError(f"Unsupported output format: {output_format}. Valid formats: {valid_formats}")
+        valid_formats: str = ", ".join(format_renderers.keys())
+        raise ValueError(
+            f"Unsupported output format: {output_format}. Valid formats: {valid_formats}"
+        )
 
     # Get and execute the appropriate renderer
-    renderer = format_renderers[output_format]
+    renderer: RendererFunc = format_renderers[output_format]
     logger.info(f"Rendering comparison in {output_format} format")
 
     return renderer(comparison_data)
@@ -72,18 +86,23 @@ def _render_markdown(comparison_data: ModelResponse) -> str:
         comparison_data: The model comparison data to render
 
     Returns:
-        Markdown string representing the comparison
+        str: Markdown string representing the comparison
+
+    Note:
+        Markdown output includes a table of contents and comparison summary
     """
-    topic = comparison_data["topic"]
-    models = comparison_data["models"]
+    topic: str = comparison_data["topic"]
+    models: Dict[str, Dict[str, str]] = comparison_data["models"]
 
     # Initialize output with title
-    output = [f"# Model Comparison: {topic}\n"]
+    output: List[str] = [f"# Model Comparison: {topic}\n"]
 
     # Add table of contents
     output.append("## Table of Contents\n")
     for i, model_name in enumerate(models.keys()):
-        output.append(f"{i+1}. [{model_name.upper()}](#{model_name.lower().replace(' ', '-')})\n")
+        output.append(
+            f"{i+1}. [{model_name.upper()}](#{model_name.lower().replace(' ', '-')})\n"
+        )
     output.append("\n---\n")
 
     # Add model sections
@@ -92,7 +111,7 @@ def _render_markdown(comparison_data: ModelResponse) -> str:
 
         # Add each content section
         for section_name, content in sections.items():
-            formatted_section = section_name.replace('_', ' ').title()
+            formatted_section: str = section_name.replace("_", " ").title()
             output.append(f"### {formatted_section}\n")
             output.append(f"{content}\n\n")
 
@@ -104,8 +123,8 @@ def _render_markdown(comparison_data: ModelResponse) -> str:
     output.append("| ----- | ------------- | ------------------ |\n")
 
     for model_name, sections in models.items():
-        strengths = "N/A"
-        limitations = "N/A"
+        strengths: str = "N/A"
+        limitations: str = "N/A"
 
         # Extract brief versions of strengths and limitations if available
         if "advantages" in sections:
@@ -129,13 +148,16 @@ def _render_html(comparison_data: ModelResponse) -> str:
         comparison_data: The model comparison data to render
 
     Returns:
-        HTML string representing the comparison
+        str: HTML string representing the comparison
+
+    Note:
+        Includes basic CSS styling and a responsive layout
     """
-    topic = comparison_data["topic"]
-    models = comparison_data["models"]
+    topic: str = comparison_data["topic"]
+    models: Dict[str, Dict[str, str]] = comparison_data["models"]
 
     # Create HTML structure
-    html = [
+    html: List[str] = [
         "<!DOCTYPE html>",
         "<html lang='en'>",
         "<head>",
@@ -155,12 +177,12 @@ def _render_html(comparison_data: ModelResponse) -> str:
         f"    <h1>Model Comparison: {topic}</h1>",
         "",
         "    <h2>Table of Contents</h2>",
-        "    <ul>"
+        "    <ul>",
     ]
 
     # Add table of contents
     for model_name in models.keys():
-        model_id = model_name.lower().replace(' ', '-')
+        model_id: str = model_name.lower().replace(" ", "-")
         html.append(f"        <li><a href='#{model_id}'>{model_name.upper()}</a></li>")
 
     html.append("    </ul>")
@@ -168,16 +190,16 @@ def _render_html(comparison_data: ModelResponse) -> str:
 
     # Add model sections
     for model_name, sections in models.items():
-        model_id = model_name.lower().replace(' ', '-')
+        model_id: str = model_name.lower().replace(" ", "-")
         html.append(f"    <div id='{model_id}' class='model-section'>")
         html.append(f"        <h2>{model_name.upper()}</h2>")
 
         # Add each content section
         for section_name, content in sections.items():
-            formatted_section = section_name.replace('_', ' ').title()
+            formatted_section: str = section_name.replace("_", " ").title()
             html.append(f"        <h3>{formatted_section}</h3>")
             # Format paragraphs correctly with <p> tags
-            paragraphs = content.split("\n\n")
+            paragraphs: List[str] = content.split("\n\n")
             for para in paragraphs:
                 html.append(f"        <p>{para}</p>")
 
@@ -186,11 +208,13 @@ def _render_html(comparison_data: ModelResponse) -> str:
     # Add comparison table
     html.append("    <h2>Summary Comparison</h2>")
     html.append("    <table class='comparison-table'>")
-    html.append("        <tr><th>Model</th><th>Key Strengths</th><th>Notable Limitations</th></tr>")
+    html.append(
+        "        <tr><th>Model</th><th>Key Strengths</th><th>Notable Limitations</th></tr>"
+    )
 
     for model_name, sections in models.items():
-        strengths = "N/A"
-        limitations = "N/A"
+        strengths: str = "N/A"
+        limitations: str = "N/A"
 
         # Extract brief versions of strengths and limitations if available
         if "advantages" in sections:
@@ -198,7 +222,9 @@ def _render_html(comparison_data: ModelResponse) -> str:
         if "limitations" in sections:
             limitations = sections["limitations"].split(". ")[0]
 
-        html.append(f"        <tr><td><strong>{model_name.upper()}</strong></td><td>{strengths}</td><td>{limitations}</td></tr>")
+        html.append(
+            f"        <tr><td><strong>{model_name.upper()}</strong></td><td>{strengths}</td><td>{limitations}</td></tr>"
+        )
 
     html.append("    </table>")
     html.append("</body>")
@@ -218,21 +244,24 @@ def _render_text(comparison_data: ModelResponse) -> str:
         comparison_data: The model comparison data to render
 
     Returns:
-        Plain text string representing the comparison
+        str: Plain text string representing the comparison
+
+    Note:
+        Uses ASCII-based formatting with horizontal rules and aligned columns
     """
-    topic = comparison_data["topic"]
-    models = comparison_data["models"]
+    topic: str = comparison_data["topic"]
+    models: Dict[str, Dict[str, str]] = comparison_data["models"]
 
     # Calculate width for horizontal rules
-    hr_width = 80
-    hr = "=" * hr_width
+    hr_width: int = 80
+    hr: str = "=" * hr_width
 
     # Initialize output with title
-    output = [
+    output: List[str] = [
         hr,
         f"MODEL COMPARISON: {topic.upper()}".center(hr_width),
         hr,
-        ""
+        "",
     ]
 
     # Add table of contents
@@ -250,7 +279,7 @@ def _render_text(comparison_data: ModelResponse) -> str:
 
         # Add each content section
         for section_name, content in sections.items():
-            formatted_section = section_name.replace('_', ' ').title()
+            formatted_section: str = section_name.replace("_", " ").title()
             output.append(f"{formatted_section}:")
             output.append("")
             output.append(content)
@@ -264,17 +293,19 @@ def _render_text(comparison_data: ModelResponse) -> str:
     output.append("")
 
     # Calculate column widths for table
-    model_width = max(len(model_name.upper()) for model_name in models.keys()) + 2
-    column_width = (hr_width - model_width - 3) // 2
+    model_width: int = max(len(model_name.upper()) for model_name in models.keys()) + 2
+    column_width: int = (hr_width - model_width - 3) // 2
 
     # Add table header
-    output.append(f"{'MODEL'.ljust(model_width)} | {'KEY STRENGTHS'.ljust(column_width)} | {'NOTABLE LIMITATIONS'}")
+    output.append(
+        f"{'MODEL'.ljust(model_width)} | {'KEY STRENGTHS'.ljust(column_width)} | {'NOTABLE LIMITATIONS'}"
+    )
     output.append(f"{'-' * model_width}-+-{'-' * column_width}-+-{'-' * column_width}")
 
     # Add model rows
     for model_name, sections in models.items():
-        strengths = "N/A"
-        limitations = "N/A"
+        strengths: str = "N/A"
+        limitations: str = "N/A"
 
         # Extract brief versions of strengths and limitations if available
         if "advantages" in sections:
@@ -282,6 +313,8 @@ def _render_text(comparison_data: ModelResponse) -> str:
         if "limitations" in sections:
             limitations = sections["limitations"].split(". ")[0][:column_width]
 
-        output.append(f"{model_name.upper().ljust(model_width)} | {strengths.ljust(column_width)} | {limitations}")
+        output.append(
+            f"{model_name.upper().ljust(model_width)} | {strengths.ljust(column_width)} | {limitations}"
+        )
 
     return "\n".join(output)

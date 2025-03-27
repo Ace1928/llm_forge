@@ -4,10 +4,12 @@ Command Line Interface for LLM Forge.
 
 This module provides the main entry point for the LLM Forge CLI,
 with commands for generating model comparisons and other utilities.
+It orchestrates the parsing, processing, and rendering of model
+comparisons through a user-friendly command interface.
 """
 
 import sys
-from typing import Dict, Literal, Optional, Union, cast
+from typing import Dict, Final, Literal, Optional, Tuple, cast
 
 import click
 from click import Context
@@ -18,12 +20,14 @@ from llm_forge.input_parser import parse_input
 from llm_forge.logging_config import configure_logging
 
 # Configure logging for CLI context
-logger = configure_logging()
+logger: Final = configure_logging()
 
 # Exit status code type for CLI operations
-ExitCode = Union[Literal[0], Literal[1]]
+ExitCode = Literal[0, 1]
 
-__version__ = "0.1.0"
+__version__: Final[str] = "0.1.0"
+
+
 @click.group()
 @click.version_option(str(__version__), prog_name="LLM Forge")
 @click.pass_context
@@ -32,7 +36,12 @@ def cli(ctx: Context) -> None:
     LLM Forge: Compare and analyze different language models.
 
     A tool for generating standardized comparisons between different
-    LLM models based on natural language prompts.
+    LLM models based on natural language prompts. The tool extracts
+    structured information from prompts and produces formatted
+    comparisons across multiple dimensions.
+
+    Args:
+        ctx: Click command context
     """
     # Initialize context for command
     ctx.ensure_object(dict)
@@ -41,26 +50,26 @@ def cli(ctx: Context) -> None:
 @cli.command()
 @click.argument("prompt", required=True)
 @click.option(
-    "--format", "-f",
+    "--format",
+    "-f",
     type=click.Choice(["markdown", "html", "text"]),
     default="markdown",
-    help="Output format for the comparison"
+    help="Output format for the comparison",
 )
 @click.option(
-    "--output", "-o",
-    type=click.Path(),
-    help="Output file path (defaults to stdout)"
+    "--output", "-o", type=click.Path(), help="Output file path (defaults to stdout)"
 )
 @click.option(
-    "--models", "-m",
+    "--models",
+    "-m",
     multiple=True,
-    help="Models to compare (defaults to automatic detection)"
+    help="Models to compare (defaults to automatic detection)",
 )
 def compare(
     prompt: str,
     format: str,
     output: Optional[str] = None,
-    models: Optional[tuple[str, ...]] = None
+    models: Optional[Tuple[str, ...]] = None,
 ) -> ExitCode:
     """
     Generate a comparison between different LLMs for a given prompt.
@@ -75,7 +84,11 @@ def compare(
         models: Specific models to compare
 
     Returns:
-        0 for success, 1 for error
+        int: 0 for success, 1 for error
+
+    Examples:
+        $ llmforge compare "Compare GPT-4 and Claude-2 on code generation"
+        $ llmforge compare "Analyze LLMs for data analysis" --format html --output comparison.html
     """
     try:
         # Parse the user input
@@ -90,7 +103,7 @@ def compare(
 
         # Render the output in the requested format
         # Cast to FormatType to ensure type safety
-        rendered_output = render_output(comparison_data, cast(FormatType, format))
+        rendered_output: str = render_output(comparison_data, cast(FormatType, format))
 
         # Write to file or stdout
         if output:
@@ -106,11 +119,7 @@ def compare(
 
 
 @cli.command()
-@click.option(
-    "--list", "list_models",
-    is_flag=True,
-    help="List all available models"
-)
+@click.option("--list", "list_models", is_flag=True, help="List all available models")
 def models(list_models: bool) -> ExitCode:
     """
     Manage and view available LLM models.
@@ -122,7 +131,10 @@ def models(list_models: bool) -> ExitCode:
         list_models: Flag to list all available models
 
     Returns:
-        0 for success
+        int: 0 for success
+
+    Examples:
+        $ llmforge models --list
     """
     if list_models:
         # This would normally fetch from a registry or configuration
@@ -150,7 +162,10 @@ def main() -> ExitCode:
     that weren't caught by individual commands.
 
     Returns:
-        0 for success or handled errors, representing a clean exit
+        int: 0 for success or handled errors, representing a clean exit
+
+    Examples:
+        $ python -m llm_forge.cli.main
     """
     try:
         cli()  # pylint: disable=no-value-for-parameter

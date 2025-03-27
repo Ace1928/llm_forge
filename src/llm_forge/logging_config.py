@@ -24,7 +24,11 @@ FormatStyle = Literal["%", "{", "$"]
 
 
 class ColorCode(Enum):
-    """ANSI color and style codes for terminal output enhancement."""
+    """
+    ANSI color and style codes for terminal output enhancement.
+
+    Provides color and styling options for log messages in terminal output.
+    """
 
     GREY = "\033[38;5;240m"
     RED = "\033[31;1m"
@@ -42,6 +46,9 @@ class ColorCode(Enum):
 class EidosianFormatter(logging.Formatter):
     """
     Enhanced log formatter with color support and witty prefixes.
+
+    Extends the standard logging.Formatter to add color-coding and
+    contextual prefixes based on log level.
 
     Attributes:
         LEVEL_COLORS: Mapping of log levels to terminal color codes
@@ -112,6 +119,9 @@ class EidosianFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
         """
         Format the log record with color and witty prefixes.
+
+        Adds contextual information, a witty prefix based on log level,
+        and applies color coding if enabled.
 
         Args:
             record: The log record to format

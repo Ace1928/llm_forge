@@ -7,14 +7,159 @@ generation of complete, well-formatted responses.
 """
 
 import random
-from typing import Dict, Final, List
+from typing import Dict, Final, List, Protocol, runtime_checkable
 
 from llm_forge.logging_config import configure_logging
+from llm_forge.model_manager import get_model_manager
 from llm_forge.templates.content_templates import get_section_template
-from llm_forge.type_definitions import ContentGenerator, ModelResponse, StructuredInput
+from llm_forge.type_definitions import (
+    ContentGenerator,
+    ModelResponse,
+    ModelType,
+    StructuredInput,
+)
 
 # Configure logging
 logger: Final = configure_logging()
+
+
+@runtime_checkable
+class LLMProvider(Protocol):
+    """
+    Protocol for LLM service providers.
+
+    Defines the interface that any LLM provider must implement
+    to be compatible with the content generation system.
+    """
+
+    def generate_text(self, prompt: str, max_tokens: int = 500) -> str:
+        """
+        Generate text using the LLM.
+
+        Args:
+            prompt: The input prompt for the model
+            max_tokens: Maximum number of tokens to generate
+
+        Returns:
+            Generated text from the LLM
+        """
+        ...
+
+
+class ActualContentGenerator:
+    """
+    Content generator using real language models.
+
+    Generates content by prompting actual language models through
+    the ModelManager interface, formatting prompts appropriately for
+    each model and section.
+    """
+
+    def __init__(self) -> None:
+        """Initialize the content generator with model manager."""
+        self.model_manager = get_model_manager()
+        logger.info("Initialized ActualContentGenerator with model manager connection")
+
+    def generate(self, model: str, section: str, topic: str) -> str:
+        """
+        Generate content using actual language models.
+
+        Args:
+            model: The model to generate content for
+            section: The section to generate
+            topic: The topic to generate content about
+
+        Returns:
+            Generated content as a string
+
+        Raises:
+            ValueError: If the model is not supported
+        """
+        # Skip unsupported models or fallback to simulation
+        try:
+            # Convert model name to ModelType
+            model_type = self._normalize_model_name(model)
+
+            # Format prompt for this section and topic
+            prompt = self._format_prompt(model_type, section, topic)
+
+            # Generate content
+            content = self.model_manager.generate_text(
+                prompt=prompt, model=model_type, max_tokens=500
+            )
+
+            logger.debug(f"Generated {len(content)} chars for {model}/{section}")
+            return content
+
+        except Exception as e:
+            # Log error and fallback to simulation
+            logger.warning(
+                f"Error using actual model {model}: {str(e)}. Falling back to simulation."
+            )
+            fallback = SimulatedContentGenerator()
+            return fallback.generate(model, section, topic)
+
+    def _normalize_model_name(self, model: str) -> ModelType:
+        """
+        Convert model name to a standard ModelType.
+
+        Args:
+            model: Model name from user input
+
+        Returns:
+            Standardized ModelType
+
+        Raises:
+            ValueError: If model cannot be normalized
+        """
+        # Simple normalization rules
+        model_lower = model.lower()
+
+        if "gpt" in model_lower:
+            return "gpt"
+        elif "claude" in model_lower:
+            return "claude"
+        elif "llama" in model_lower:
+            return "llama"
+        elif "mistral" in model_lower:
+            return "mistral"
+        elif "gemini" in model_lower:
+            return "gemini"
+        elif "palm" in model_lower:
+            return "palm"
+        elif "falcon" in model_lower:
+            return "falcon"
+        else:
+            # Default to gpt for unknown models
+            logger.warning(f"Unknown model '{model}', defaulting to GPT")
+            return "gpt"
+
+    def _format_prompt(self, model: ModelType, section: str, topic: str) -> str:
+        """
+        Format a prompt for the specific model, section, and topic.
+
+        Args:
+            model: The model type
+            section: The section to generate
+            topic: The topic to generate content about
+
+        Returns:
+            Formatted prompt string
+        """
+        # Get template for model-specific formatting
+        template = get_section_template(section)
+
+        # Base prompt structure
+        prompt = (
+            f"Generate content about '{topic}' that would be appropriate for the "
+            f"'{section}' section of an analysis about {model.upper()} models.\n\n"
+            f"The content should focus on the {model.upper()} model's approach to {topic}, "
+            f"particularly its {section.replace('_', ' ')}.\n\n"
+            f"Format the content in a informative, neutral expert tone with concrete "
+            f"details about {model.upper()}'s capabilities."
+        )
+
+        return prompt
 
 
 class SimulatedContentGenerator:
@@ -168,8 +313,15 @@ def generate_response(structured_input: StructuredInput) -> ModelResponse:
     # Initialize response structure
     response: ModelResponse = {"topic": structured_input["topic"], "models": {}}
 
-    # Create content generator
-    generator: SimulatedContentGenerator = SimulatedContentGenerator()
+    # Try to use actual models first, fall back to simulation if needed
+    try:
+        # Check if we can use the model manager
+        generator: ContentGenerator = ActualContentGenerator()
+        logger.info("Using actual language models for content generation")
+    except Exception:
+        # Fall back to simulation if model manager not available
+        generator = SimulatedContentGenerator()
+        logger.info("Using simulated content generator (model manager unavailable)")
 
     # Generate content for each model and section
     for model_name in structured_input["models"]:
@@ -208,7 +360,9 @@ def ensure_complete_response(
     logger.info("Checking response completeness")
 
     # Identify missing sections for each model
-    missing_sections: Dict[str, List[str]] = _identify_missing_sections(response, structured_input)
+    missing_sections: Dict[str, List[str]] = _identify_missing_sections(
+        response, structured_input
+    )
 
     # If everything is complete, return as is
     if not any(sections for sections in missing_sections.values()):
@@ -216,7 +370,7 @@ def ensure_complete_response(
         return response
 
     # Create content generator for filling missing sections
-    generator: SimulatedContentGenerator = SimulatedContentGenerator()
+    generator: ContentGenerator = SimulatedContentGenerator()
 
     # Generate content for missing sections
     updated_response: ModelResponse = _fill_missing_sections(
@@ -280,7 +434,7 @@ def _fill_missing_sections(
     """
     updated_response: ModelResponse = {
         "topic": response["topic"],
-        "models": {**response["models"]}
+        "models": {**response["models"]},
     }
 
     for model_name, sections in missing_sections.items():

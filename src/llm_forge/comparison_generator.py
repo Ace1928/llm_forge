@@ -27,19 +27,26 @@ def generate_comparison(structured_input: StructuredInput) -> ModelResponse:
 
     Args:
         structured_input: Parsed and validated user prompt with models,
-                          sections, and topic information
+                         sections, and topic information
 
     Returns:
-        ModelResponse with fully populated content for each model and section
+        ModelResponse: Fully populated content for each model and section
 
     Raises:
         ValueError: If the structured input is invalid or incomplete
+
+    Examples:
+        >>> input_data = {"models": ["gpt-4", "claude-2"], "sections": ["overview"], "topic": "AI safety"}
+        >>> response = generate_comparison(input_data)
+        >>> print(response["models"]["gpt-4"]["overview"])
     """
     # Validate input structure
     _validate_comparison_input(structured_input)
 
     # Log comparison generation start with context
-    logger.info(f"Generating comparison for {len(structured_input['models'])} models on topic: {structured_input['topic']}")
+    logger.info(
+        f"Generating comparison for {len(structured_input['models'])} models on topic: {structured_input['topic']}"
+    )
     logger.debug(f"Models: {', '.join(structured_input['models'])}")
     logger.debug(f"Sections: {', '.join(structured_input['sections'])}")
 
@@ -52,9 +59,13 @@ def generate_comparison(structured_input: StructuredInput) -> ModelResponse:
     )
 
     # Log completion of comparison generation
-    model_count = len(complete_response["models"])
-    section_count = sum(len(sections) for sections in complete_response["models"].values())
-    logger.info(f"Comparison generated: {model_count} models, {section_count} total sections")
+    model_count: int = len(complete_response["models"])
+    section_count: int = sum(
+        len(sections) for sections in complete_response["models"].values()
+    )
+    logger.info(
+        f"Comparison generated: {model_count} models, {section_count} total sections"
+    )
 
     return complete_response
 
@@ -85,21 +96,23 @@ def _validate_comparison_input(structured_input: StructuredInput) -> None:
     # Validate model names (prevent injection or invalid names)
     # Model names should only contain alphanumeric chars, underscores, hyphens, and periods
     for model in structured_input["models"]:
-        if not model or not re.match(r'^[a-zA-Z0-9_\-\.]+$', model):
+        if not model or not re.match(r"^[a-zA-Z0-9_\-\.]+$", model):
             raise ValueError(f"Invalid model name: {model}")
 
     # Enforce reasonable limits
     if len(structured_input["models"]) > 10:
-        raise ValueError(f"Too many models requested: {len(structured_input['models'])}. Maximum is 10.")
+        raise ValueError(
+            f"Too many models requested: {len(structured_input['models'])}. Maximum is 10."
+        )
 
     if len(structured_input["sections"]) > 15:
-        raise ValueError(f"Too many sections requested: {len(structured_input['sections'])}. Maximum is 15.")
+        raise ValueError(
+            f"Too many sections requested: {len(structured_input['sections'])}. Maximum is 15."
+        )
 
 
 def extract_differences(
-    comparison: ModelResponse,
-    section: str,
-    models: Optional[List[str]] = None
+    comparison: ModelResponse, section: str, models: Optional[List[str]] = None
 ) -> Dict[str, List[str]]:
     """
     Extract key differences between models for a specific section.
@@ -113,14 +126,19 @@ def extract_differences(
         models: Optional list of models to restrict the analysis to
 
     Returns:
-        Dictionary mapping models to lists of distinctive characteristics
+        Dict[str, List[str]]: Dictionary mapping models to lists of distinctive characteristics
 
     Note:
         This is a simplified implementation. A full implementation would use
         NLP techniques for more sophisticated difference extraction.
+
+    Examples:
+        >>> differences = extract_differences(comparison_data, "advantages", ["gpt-4", "claude-2"])
+        >>> for model, points in differences.items():
+        ...     print(f"{model}: {len(points)} distinctive points")
     """
     differences: Dict[str, List[str]] = {}
-    target_models = models or list(comparison["models"].keys())
+    target_models: List[str] = models or list(comparison["models"].keys())
 
     # Simple extraction based on key phrases and unique content
     # In a real implementation, this would use NLP for semantic analysis
@@ -128,26 +146,26 @@ def extract_differences(
         if model not in comparison["models"]:
             continue
 
-        model_sections = comparison["models"][model]
+        model_sections: Dict[str, str] = comparison["models"][model]
         if section not in model_sections:
             continue
 
-        content = model_sections[section]
+        content: str = model_sections[section]
 
         # Simple extraction of sentences with distinctive markers
         # A real implementation would use more sophisticated algorithms
-        distinctive_markers = [
+        distinctive_markers: List[str] = [
             f"{model} is",
             "uniquely",
             "specifically",
             "unlike other models",
             "stands out",
-            "excels at"
+            "excels at",
         ]
 
         # Extract sentences containing distinctive markers
         differences[model] = []
-        sentences = content.split(". ")
+        sentences: List[str] = content.split(". ")
         for sentence in sentences:
             if any(marker in sentence.lower() for marker in distinctive_markers):
                 differences[model].append(sentence)

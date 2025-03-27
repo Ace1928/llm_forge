@@ -35,6 +35,7 @@ def process_user_prompt(user_prompt: str) -> ModelResponse:
     This is the main orchestration function that coordinates the entire process
     from parsing the prompt to generating and finalizing the response. The function
     follows a three-step pipeline:
+
     1. Parse the prompt into structured data
     2. Generate initial content for each model and section
     3. Validate and complete any missing sections
