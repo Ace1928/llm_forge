@@ -24,6 +24,7 @@ ensure_punkt()
 
 # Configure logging with module context
 logger: Final = configure_logging()
+ensure_punkt()
 
 
 def main() -> None:
