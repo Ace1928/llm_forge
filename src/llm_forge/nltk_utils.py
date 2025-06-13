@@ -1,3 +1,4 @@
+from __future__ import annotations
 
 """NLTK utilities for Eidosian Forge.
 
