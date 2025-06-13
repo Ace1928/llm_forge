@@ -162,7 +162,7 @@ def main() -> ExitCode:
     that weren't caught by individual commands.
 
     Returns:
-        int: 0 for success or handled errors, representing a clean exit
+        int: 0 for success. Non-zero indicates failure.
 
     Examples:
         $ python -m llm_forge.cli.main
@@ -172,7 +172,7 @@ def main() -> ExitCode:
         return 0
     except Exception as e:
         logger.error(f"Unexpected error: {e}")
-        return 0
+        return 1
 
 
 if __name__ == "__main__":
