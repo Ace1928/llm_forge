@@ -1,3 +1,12 @@
+# Living Glossary
+
+This glossary collects recurring terms and acronyms used throughout the project. Add new entries in alphabetical order.
+
+## Terms
+
+- **Eidosian recursion**: Design pattern where processes repeat until no inconsistencies remain. Used to refine model outputs.
+
+=======
 # 📚 Glossary
 
 This living glossary defines terms frequently used throughout **LLM Forge**. Contributors should append new entries as additional concepts emerge.
