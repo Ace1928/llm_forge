@@ -88,7 +88,8 @@ def compare(
 
     Examples:
         $ llmforge compare "Compare GPT-4 and Claude-2 on code generation"
-        $ llmforge compare "Analyze LLMs for data analysis" --format html --output comparison.html
+        $ llmforge compare \
+            "Analyze LLMs for data analysis" --format html --output comparison.html
     """
     try:
         # Parse the user input
@@ -152,6 +153,29 @@ def models(list_models: bool) -> ExitCode:
         print("Use --list to see available models")
 
     return 0
+
+
+@cli.command()
+@click.argument("files", nargs=-1, type=click.Path(exists=True))
+@click.option("--model-name", default="distilgpt2", help="Base model checkpoint")
+@click.option("--output-dir", default="./trained_model", help="Where to save the model")
+@click.option("--epochs", default=1, type=int, help="Number of training epochs")
+def train(
+    files: Tuple[str, ...],
+    model_name: str,
+    output_dir: str,
+    epochs: int,
+) -> ExitCode:
+    """Train a small language model on the given text files."""
+
+    from llm_forge.trainer import train_model
+
+    try:
+        train_model(files, model_name=model_name, output_dir=output_dir, epochs=epochs)
+        return 0
+    except Exception as e:  # pragma: no cover - runtime errors tested via integration
+        logger.error(f"Training failed: {e}")
+        return 1
 
 
 def main() -> ExitCode:
